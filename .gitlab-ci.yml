@@ -1,0 +1,50 @@
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      changes:
+        - makefile
+        - docker-compose-stage.yml
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: on_success
+  tags:
+    - dev
+  script:
+    - docker-compose -f docker-compose.dev.yml down
+    - dotnet nuget locals all --clear
+    - rm -rf /home/gitlab-runner/.nuget
+    - dotnet restore "ArtSchools/ArtSchools.csproj" --verbosity detailed --disable-parallel
+    - dotnet build "ArtSchools/ArtSchools.csproj" -c Release -o app/build
+    - dotnet publish "ArtSchools/ArtSchools.csproj" -c Release -o app/publish
+    - docker-compose -f docker-compose.dev.yml up -d
+
+deploy-master:
+  stage: deploy
+  image: docker:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      changes:
+        - makefile
+        - docker-compose-stage.yml
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: on_success
+  tags:
+    - master
+  script:
+    - docker-compose -f docker-compose.master.yml down
+    - dotnet nuget locals all --clear
+    - rm -rf /home/gitlab-runner/.nuget
+    - dotnet restore "ArtSchools/ArtSchools.csproj" --verbosity detailed --disable-parallel
+    - dotnet build "ArtSchools/ArtSchools.csproj" -c Release -o app/build
+    - dotnet publish "ArtSchools/ArtSchools.csproj" -c Release -o app/publish
+    - docker-compose -f docker-compose.master.yml up -d
